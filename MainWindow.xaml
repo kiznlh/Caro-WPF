@@ -6,14 +6,14 @@
         xmlns:local="clr-namespace:Caro_WPF"
         mc:Ignorable="d"
         x:Name="window"
-        PreviewKeyDown="window_PreviewKeyDown"
+      
         Title="MainWindow" Height="800" Width="800"  >
     
     <DockPanel>
-        <MediaElement x:Name="battleTheme" LoadedBehavior="Manual" Source="Resources/OST/battle_theme.mp3" MediaEnded="mediaElement_MediaEnded"/>
+        <MediaElement x:Name="battleTheme" LoadedBehavior="Manual" Source="Resources/OST/battle_theme.mp3" MediaEnded="mediaElement_MediaEnded" />
         <MediaElement x:Name="keycardTheme" LoadedBehavior="Manual" Source="Resources/OST/keycard_theme.mp3" MediaEnded="mediaElement_MediaEnded"/>
         <MediaElement x:Name="climaxTheme" LoadedBehavior="Manual" Source="Resources/OST/climax_theme.mp3" MediaEnded="mediaElement_MediaEnded"/>
-
+        <MediaElement x:Name="victoryTheme" LoadedBehavior="Manual" Source="Resources/OST/victory_theme.opus" MediaEnded="mediaElement_MediaEnded" />
 
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_Save" x:Name="saveButton" Click="saveButton_Click" FontSize="20"/>
@@ -21,7 +21,7 @@
             <MenuItem Header="_Change Size" x:Name="changeSizeButton" Click="changeSizeButton_Click" FontSize="20"/>
             <MenuItem Header="_Restart" x:Name="restartButton" Click="restartButton_Click" FontSize="20"/>
         </Menu>
-        <Grid x:Name="grid" DockPanel.Dock="Bottom" SizeChanged="Grid_SizeChanged" MouseDown="grid_MouseDown">
+        <Grid x:Name="grid" DockPanel.Dock="Bottom" SizeChanged="Grid_SizeChanged" MouseDown="grid_MouseDown" MouseMove="grid_MouseMove" >
 
         </Grid>
     </DockPanel>

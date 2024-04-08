@@ -1,10 +1,13 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.ComponentModel;
-
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Media;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Security.Policy;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Windows;
@@ -62,11 +65,13 @@ namespace Caro_WPF
         CellState Player = CellState.O;
         int moveCount = 0;
         CellState[,] board;
-
+        public Rectangle[,] boardCells;
+        int currentRow;
+        int currentColumn;
         // UI property
         private double _heightUnit;
         private double _widthUnit;
-        
+
         public double HeightUnit
         {
             get { return _heightUnit; }
@@ -99,7 +104,7 @@ namespace Caro_WPF
             get { return _circleUnit; }
             set
             {
-                if ( _circleUnit != value)
+                if (_circleUnit != value)
                 {
                     _circleUnit = value;
                     OnPropertyChanged();
@@ -110,7 +115,7 @@ namespace Caro_WPF
         public int columnsCount { get; set; } = 12;
 
         // Music property
-        
+
 
         // Main Window()
         public MainWindow()
@@ -120,7 +125,8 @@ namespace Caro_WPF
             DataContext = this;
 
             Loaded += MainWindow_Loaded;
-
+            currentColumn = 0;
+            currentRow = 0;
             grid.Focus();
 
         }
@@ -140,15 +146,8 @@ namespace Caro_WPF
         {
             setGridLine(rowsCount, columnsCount);
             UpdateUnits();
-            board = new CellState[rowsCount, columnsCount];
-            for (int i = 0; i < rowsCount; i++)
-            {
-                for (int j = 0; j < columnsCount; j++)
-                {
-                    board[i,j] = CellState.Empty;
-                }
-            }
-          
+
+            KeyDown += window_KeyDown;
             //play music
             climaxTheme.Stop();
             keycardTheme.Stop();
@@ -156,10 +155,39 @@ namespace Caro_WPF
 
         }
 
-        private void setGridLine(int col_count, int row_count)
+        private void setGridLine(int row_count, int col_count)
         {
             clearGrid();
-            for (int i =0; i < col_count; i++)
+            //climaxTheme.Stop();
+            //keycardTheme.Stop();
+            //battleTheme.Stop();
+            //battleTheme.Play();
+            boardCells = new Rectangle[row_count, col_count];
+            for (int row = 0; row < row_count; row++)
+            {
+                for (int col = 0; col < col_count; col++)
+                {
+                    boardCells[row, col] = null;
+                }
+            }
+            pointerRow = 0;
+            pointerColumn = 0;
+            pointerElement = null;
+
+
+            currentRow = 0;
+            currentColumn = 0;
+            board = new CellState[row_count, col_count];
+            for (int i = 0; i < row_count; i++)
+            {
+                for (int j = 0; j < col_count; j++)
+                {
+                    board[i, j] = CellState.Empty;
+                }
+            }
+
+
+            for (int i = 0; i < col_count; i++)
             {
                 ColumnDefinition column = new ColumnDefinition();
                 column.Width = new GridLength(1, GridUnitType.Star);
@@ -171,21 +199,24 @@ namespace Caro_WPF
                 row.Height = new GridLength(1, GridUnitType.Star);
                 grid.RowDefinitions.Add(row);
             }
-            for (int i = 0; i < col_count; i++)
+            for (int i = 0; i < row_count; i++)
             {
-                for (int j = 0; j < row_count; j++)
+                for (int j = 0; j < col_count; j++)
                 {
                     Rectangle rectangle = new Rectangle();
                     rectangle.Stroke = new SolidColorBrush(Colors.Black);
                     rectangle.Fill = new SolidColorBrush(Colors.Transparent);
-                    rectangle.StrokeThickness = 0.2;
+                    rectangle.StrokeThickness = 0.5;
                     rectangle.MouseEnter += cell_MouseEnter;
                     rectangle.MouseLeave += cell_MouseLeave;
-                    
+
+                    boardCells[i, j] = rectangle;
+
                     grid.Children.Add(rectangle);
-                    Grid.SetColumn(rectangle,i);
-                    Grid.SetRow(rectangle,j);
-                    
+                    Grid.SetRow(rectangle, i);
+                    Grid.SetColumn(rectangle, j);
+                  
+
                 }
             }
 
@@ -194,14 +225,14 @@ namespace Caro_WPF
         {
             Ellipse blueCircle = new Ellipse();
             blueCircle.Stretch = Stretch.Uniform;
-           
+
             blueCircle.SetBinding(WidthProperty, new Binding("CircleUnit") { Source = this, Converter = new MultiplyConverter(), ConverterParameter = 0.8 });
             blueCircle.SetBinding(HeightProperty, new Binding("Width") { Source = blueCircle });
             blueCircle.Stroke = new SolidColorBrush(Colors.Blue);
             blueCircle.StrokeThickness = 3;
             //blueCircle.Opacity = 0.1;
 
-            
+
             return blueCircle;
         }
         Ellipse setHoverCircle()
@@ -220,7 +251,7 @@ namespace Caro_WPF
             return blueCircle;
         }
 
-      
+
         Canvas setCross()
         {
             Canvas redCross = new Canvas();
@@ -303,13 +334,20 @@ namespace Caro_WPF
         // Game logic function
         private void grid_MouseDown(object sender, MouseButtonEventArgs e)
         {
+
             if (Mouse.LeftButton == MouseButtonState.Pressed)
             {
-                int row = -1;
-                int column = -1;
-                var coordinate = e.GetPosition(grid);
-                row = (int)(coordinate.Y / HeightUnit);
-                column = (int)(coordinate.X / WidthUnit);
+                firstKeyPress = true;
+                resetColorKeyboardCell();
+
+                int row = pointerRow;
+                int column = pointerColumn;
+
+                if (pointerElement != null && grid.Children.Contains(pointerElement))
+                {
+                    grid.Children.Remove(pointerElement);
+                    pointerElement = null;
+                }
                 if (board[row, column] == CellState.Empty)
                 {
                     board[row, column] = Player;
@@ -331,11 +369,11 @@ namespace Caro_WPF
                         redCross.VerticalAlignment = VerticalAlignment.Center;
                         grid.Children.Add(redCross);
                     }
-             
+
                     if (CheckWinner(row, column, Player))
                     {
                         winnerName2(Player);
-                        
+
                         return;
                     }
                     moveCount++;
@@ -355,7 +393,7 @@ namespace Caro_WPF
         // Hover animation
         private void cell_MouseEnter(object sender, MouseEventArgs e)
         {
-           
+
             Rectangle rectangle = sender as Rectangle;
 
             pointerRow = Grid.GetRow(rectangle);
@@ -382,7 +420,7 @@ namespace Caro_WPF
                     pointerElement = redCross;
                     grid.Children.Add(redCross);
                 }
-   
+
             }
         }
 
@@ -397,7 +435,7 @@ namespace Caro_WPF
 
 
 
-        //
+        // win condition
         public bool CheckWinner(int row, int col, CellState player)
         {
             int[][] directions =
@@ -440,6 +478,10 @@ namespace Caro_WPF
 
         private void winnerName2(CellState value)
         {
+            battleTheme.Stop();
+            keycardTheme.Stop();
+            climaxTheme.Stop();
+            victoryTheme.Play();
             string winner = "";
             if (value == CellState.O)
             {
@@ -453,32 +495,32 @@ namespace Caro_WPF
                 MessageBox.Show(winner + " win!");
                 restart();
             }
-
-
-        }
-        private void winnerName(CellState value, string line)
-        {
-            string winner = "";
-            if (value == CellState.O)
-            {
-                winner = "O";
-                MessageBox.Show(winner + " win! Win condition: " + line);
-                restart();
-            }
-            else if (value == CellState.X)
-            {
-                winner = "X";
-                MessageBox.Show(winner + " win! Win condition: " + line);
-                restart();
-            }
-
+            victoryTheme.Stop();
 
         }
+        //private void winnerName(CellState value, string line)
+        //{
+        //    string winner = "";
+        //    if (value == CellState.O)
+        //    {
+        //        winner = "O";
+        //        MessageBox.Show(winner + " win! Win condition: " + line);
+        //        restart();
+        //    }
+        //    else if (value == CellState.X)
+        //    {
+        //        winner = "X";
+        //        MessageBox.Show(winner + " win! Win condition: " + line);
+        //        restart();
+        //    }
+
+
+        //}
 
         // button logic function
         private void restart()
         {
-
+            resetColorKeyboardCell();
             // Create a list to store items to remove
             List<UIElement> elementsToRemove = new List<UIElement>();
 
@@ -505,25 +547,152 @@ namespace Caro_WPF
                     board[i, j] = CellState.Empty;
                 }
             }
-            Player = CellState.O;
-            moveCount = 0;
-
             climaxTheme.Stop();
             keycardTheme.Stop();
+            battleTheme.Stop();
             battleTheme.Play();
 
+            currentColumn = 0;
+            currentRow = 0;
+            Player = CellState.O;
+            moveCount = 0;
+            //reset keyboard
+   
         }
 
         private void saveButton_Click(object sender, RoutedEventArgs e)
         {
+            // Create SaveFileDialog
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            saveFileDialog.FilterIndex = 1;
+            saveFileDialog.RestoreDirectory = true;
 
+            // Show save file dialog
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                // Get the selected file name
+                string fileName = saveFileDialog.FileName;
+
+                // Write the data to the selected file
+                WriteToFile(fileName);
+
+                MessageBox.Show($"{fileName} has been saved.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
+        private void WriteToFile(string fileName)
+        {
+            using (StreamWriter writer = new StreamWriter(fileName))
+            {
+                // Write the dimensions of the board
+                
+                writer.WriteLine($"{rowsCount} {columnsCount}");
 
+                // Write the board state
+                for (int i = 0; i < rowsCount; i++)
+                {
+                    for (int j = 0; j < columnsCount; j++)
+                    {
+                        writer.Write((int)board[i, j] + " ");
+                    }
+                    writer.WriteLine();
+                }
+
+                // Write the current player
+                writer.WriteLine((int)Player);
+
+                // Write the move count
+                writer.WriteLine(moveCount);
+
+               
+            }
+        }
         private void loadButton_Click(object sender, RoutedEventArgs e)
         {
+            climaxTheme.Stop();
+            keycardTheme.Stop();
+            battleTheme.Stop();
 
+
+            // Create OpenFileDialog
+
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            openFileDialog.FilterIndex = 1;
+            openFileDialog.RestoreDirectory = true;
+
+            // Show open file dialog
+            if (openFileDialog.ShowDialog() == true)
+            {
+                // Get the selected file name
+                string fileName = openFileDialog.FileName;
+
+                // Read data from the selected file
+                ReadFromFile(fileName);
+            }
         }
+        private void ReadFromFile(string fileName)
+        {
+            try
+            {
+                using (StreamReader reader = new StreamReader(fileName))
+                {
+                    // Read the dimensions of the board
+                    string[] dimensions = reader.ReadLine().Split(' ');
+                    rowsCount = int.Parse(dimensions[0]);
+                    columnsCount = int.Parse(dimensions[1]);
+                    setGridLine(rowsCount, columnsCount);
 
+                    // Read the board state
+                    for (int i = 0; i < rowsCount; i++)
+                    {
+                        string[] rowValues = reader.ReadLine().Split(' ');
+                        for (int j = 0; j < columnsCount; j++)
+                        {
+                            CellState cellState = (CellState)int.Parse(rowValues[j]); 
+                            board[i, j] = cellState;
+
+                            if (cellState == CellState.O)
+                            {
+                                Ellipse blueCircle = setCircle();
+                                Grid.SetRow(blueCircle, i);
+                                Grid.SetColumn(blueCircle, j);
+                                blueCircle.HorizontalAlignment = HorizontalAlignment.Center;
+                                blueCircle.VerticalAlignment = VerticalAlignment.Center;
+                                pointerElement = blueCircle;
+                                grid.Children.Add(blueCircle);
+                            }
+                            else if (cellState == CellState.X)
+                            {
+                                Canvas redCross = setCross();
+                                Grid.SetRow(redCross, i);
+                                Grid.SetColumn(redCross, j);
+                                redCross.HorizontalAlignment = HorizontalAlignment.Center;
+                                redCross.VerticalAlignment = VerticalAlignment.Center;
+                                pointerElement = redCross;
+                                grid.Children.Add(redCross);
+                            }
+                        }
+                    }
+
+                    // Read the current player
+                    Player = (CellState)int.Parse(reader.ReadLine());
+
+                    // Read the move count
+                    moveCount = int.Parse(reader.ReadLine());
+
+                    
+
+                    MessageBox.Show("File loaded successfully", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    checkToChangeMusic();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error reading from file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         private void changeSizeButton_Click(object sender, RoutedEventArgs e)
         {
             SizeChangeWindow sizeChangeWindow = new SizeChangeWindow();
@@ -540,23 +709,15 @@ namespace Caro_WPF
 
             rowsCount = numRows;
             columnsCount = numCols;
-            setGridLine(numCols, numRows);
-
             setGridLine(rowsCount, columnsCount);
             UpdateUnits();
-            board = new CellState[rowsCount, columnsCount];
-            for (int i = 0; i < rowsCount; i++)
-            {
-                for (int j = 0; j < columnsCount; j++)
-                {
-                    board[i, j] = CellState.Empty;
-                }
-            }
+
             Player = CellState.O;
             moveCount = 0;
 
             climaxTheme.Stop();
             keycardTheme.Stop();
+            battleTheme.Stop();
             battleTheme.Play();
         }
         private void restartButton_Click(object sender, RoutedEventArgs e)
@@ -564,13 +725,14 @@ namespace Caro_WPF
             restart();
         }
 
-        
+
         private void clearGrid()
         {
             grid.Children.Clear();
             grid.RowDefinitions.Clear();
             grid.ColumnDefinitions.Clear();
             Player = CellState.O;
+;
         }
 
         //Music handler
@@ -580,13 +742,13 @@ namespace Caro_WPF
             mediaElement.Position = TimeSpan.Zero;
             mediaElement.Play();
         }
-        
+
         void checkToChangeMusic()
         {
             int totalPossibleMove = rowsCount * columnsCount;
             if (totalPossibleMove <= 60)
             {
-                if (moveCount == totalPossibleMove / 2)
+                if (moveCount >= totalPossibleMove / 2 && moveCount < totalPossibleMove * 3 / 4)
                 {
                     battleTheme.Stop();
                     keycardTheme.Play();
@@ -601,7 +763,7 @@ namespace Caro_WPF
             }
             else
             {
-                if (moveCount == 30)
+                if (moveCount >= 30 && moveCount < 60)
                 {
                     battleTheme.Stop();
                     keycardTheme.Play();
@@ -610,70 +772,150 @@ namespace Caro_WPF
                 else if (moveCount >= 60)
                 {
                     battleTheme.Stop();
-                    keycardTheme.Stop();           
+                    keycardTheme.Stop();
                     climaxTheme.Play();
                 }
             }
         }
 
+
+        bool firstKeyPress = true;
         //Play with keyboard
-        private void window_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void resetColorKeyboardCell()
         {
-            if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right)
+            boardCells[currentRow, currentColumn].Stroke = new SolidColorBrush(Colors.Black);
+            boardCells[currentRow, currentColumn].StrokeThickness = 0.5;
+
+            if (pointerElement != null && grid.Children.Contains(pointerElement))
             {
-                // Get the currently focused element
-                UIElement focusedElement = Keyboard.FocusedElement as UIElement;
-                if (focusedElement != null)
-                    MessageBox.Show(focusedElement.GetType().Name);
-                // If the focused element is a Rectangle within the grid
-                if (focusedElement is Rectangle)
+                grid.Children.Remove(pointerElement);
+                pointerElement = null;
+            }
+        }
+        private void setColorKeyboardCell() 
+        {
+            boardCells[currentRow, currentColumn].Stroke = new SolidColorBrush(Colors.Red);
+            boardCells[currentRow, currentColumn].StrokeThickness = 2;
+
+            pointerRow = currentRow;
+            pointerColumn = currentColumn;
+            if (board[pointerRow, pointerColumn] == CellState.Empty)
+            {
+                if (Player == CellState.O)
                 {
-                  
-                    // Get the row and column of the focused rectangle
-                    int currentRow = Grid.GetRow(focusedElement);
-                    int currentColumn = Grid.GetColumn(focusedElement);
-
-                    // Calculate the new row and column based on the arrow key pressed
-                    int newRow = currentRow;
-                    int newColumn = currentColumn;
-                    if (e.Key == Key.Up && currentRow > 0)
-                    {
-                        newRow = currentRow - 1;
-                    }
-                    else if (e.Key == Key.Down && currentRow < grid.RowDefinitions.Count - 1)
-                    {
-                        newRow = currentRow + 1;
-                    }
-                    else if (e.Key == Key.Left && currentColumn > 0)
-                    {
-                        newColumn = currentColumn - 1;
-                    }
-                    else if (e.Key == Key.Right && currentColumn < grid.ColumnDefinitions.Count - 1)
-                    {
-                        newColumn = currentColumn + 1;
-                    }
-
-                    // Find the rectangle at the new row and column
-                    UIElement newElement = null;
-                    foreach (UIElement child in grid.Children)
-                    {
-                        if (Grid.GetRow(child) == newRow && Grid.GetColumn(child) == newColumn)
-                        {
-                            newElement = child;
-                            break;
-                        }
-                    }
-
-                    // Focus the new rectangle
-                    if (newElement != null)
-                    {
-                        newElement.Focus();
-                    }
+                    Ellipse blueCircle = setHoverCircle();
+                    Grid.SetRow(blueCircle, pointerRow);
+                    Grid.SetColumn(blueCircle, pointerColumn);
+                    blueCircle.HorizontalAlignment = HorizontalAlignment.Center;
+                    blueCircle.VerticalAlignment = VerticalAlignment.Center;
+                    pointerElement = blueCircle;
+                    grid.Children.Add(blueCircle);
+                }
+                else
+                {
+                    Canvas redCross = setHoverCross();
+                    Grid.SetRow(redCross, pointerRow);
+                    Grid.SetColumn(redCross, pointerColumn);
+                    redCross.HorizontalAlignment = HorizontalAlignment.Center;
+                    redCross.VerticalAlignment = VerticalAlignment.Center;
+                    pointerElement = redCross;
+                    grid.Children.Add(redCross);
                 }
 
-                // Mark the event as handled to prevent other controls from processing the arrow key
-                e.Handled = true;
             }
+        }
+        private void window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (firstKeyPress)
+            {
+                if (pointerElement != null && grid.Children.Contains(pointerElement))
+                {
+                    grid.Children.Remove(pointerElement);
+                    pointerElement = null;
+                }
+                setColorKeyboardCell();
+                firstKeyPress = false;
+                Cursor = Cursors.None;
+            }
+            else
+            {
+                switch (e.Key)
+                {
+                    case Key.Up:
+                        resetColorKeyboardCell();
+                        if (currentRow > 0)
+                            currentRow--;
+                        setColorKeyboardCell();
+                        Cursor = Cursors.None;
+                        break;
+                    case Key.Down:
+                        resetColorKeyboardCell();
+                        if (currentRow < rowsCount - 1)
+                            currentRow++;
+                        setColorKeyboardCell();
+                        Cursor = Cursors.None;
+                        break;
+                    case Key.Left:
+                        resetColorKeyboardCell();
+                        if (currentColumn > 0)
+                            currentColumn--;
+                        setColorKeyboardCell();
+                        Cursor = Cursors.None;
+                        break;
+                    case Key.Right:
+                        resetColorKeyboardCell();
+                        if (currentColumn < columnsCount - 1)
+                            currentColumn++;
+                        setColorKeyboardCell();
+                        Cursor = Cursors.None;
+                        break;
+                    case Key.Enter:
+                        Cursor = Cursors.None;
+                        int row = currentRow;
+                        int column = currentColumn;
+                        if (board[row, column] == CellState.Empty)
+                        {
+                            board[row, column] = Player;
+                            if (Player == CellState.O)
+                            {
+                                Ellipse blueCircle = setCircle();
+                                Grid.SetRow(blueCircle, row);
+                                Grid.SetColumn(blueCircle, column);
+                                blueCircle.HorizontalAlignment = HorizontalAlignment.Center;
+                                blueCircle.VerticalAlignment = VerticalAlignment.Center;
+                                grid.Children.Add(blueCircle);
+                            }
+                            else
+                            {
+                                Canvas redCross = setCross();
+                                Grid.SetRow(redCross, row);
+                                Grid.SetColumn(redCross, column);
+                                redCross.HorizontalAlignment = HorizontalAlignment.Center;
+                                redCross.VerticalAlignment = VerticalAlignment.Center;
+                                grid.Children.Add(redCross);
+                            }
+
+                            if (CheckWinner(row, column, Player))
+                            {
+                                winnerName2(Player);
+
+                                return;
+                            }
+                            moveCount++;
+                            checkToChangeMusic();
+                            Player = Player == CellState.O ? CellState.X : CellState.O;
+                        }
+              
+                        break;
+                }
+
+            }
+        }
+        // Enable cursor when move
+        private void grid_MouseMove(object sender, MouseEventArgs e)
+        {
+
+            Cursor = Cursors.Arrow;
         }
     }
 
