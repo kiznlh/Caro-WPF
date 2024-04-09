@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Caro_WPF"
         mc:Ignorable="d"
-        Title="SizeChangeWindow" Height="150" Width="150">
+        Title="SizeChangeWindow" Height="300" Width="300">
     <Window.Resources>
         <ControlTemplate x:Key="validationTemplate">
             <StackPanel Orientation="Horizontal">

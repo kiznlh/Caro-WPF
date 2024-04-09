@@ -1,25 +1,14 @@
 ﻿using Microsoft.Win32;
-using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Media;
-using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Security.Policy;
-using System.Text;
-using System.Text.Json.Serialization;
 using System.Windows;
-using System.Windows.Automation.Text;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
 
 namespace Caro_WPF
@@ -781,6 +770,8 @@ namespace Caro_WPF
 
         bool firstKeyPress = true;
         //Play with keyboard
+
+        // Reset focus cell
         private void resetColorKeyboardCell()
         {
             boardCells[currentRow, currentColumn].Stroke = new SolidColorBrush(Colors.Black);
@@ -792,6 +783,8 @@ namespace Caro_WPF
                 pointerElement = null;
             }
         }
+
+        // Focus a cell
         private void setColorKeyboardCell() 
         {
             boardCells[currentRow, currentColumn].Stroke = new SolidColorBrush(Colors.Red);
@@ -824,6 +817,8 @@ namespace Caro_WPF
 
             }
         }
+
+        // Keyboard up,left,down,right and enter event
         private void window_KeyDown(object sender, KeyEventArgs e)
         {
             if (firstKeyPress)
@@ -914,7 +909,6 @@ namespace Caro_WPF
         // Enable cursor when move
         private void grid_MouseMove(object sender, MouseEventArgs e)
         {
-
             Cursor = Cursors.Arrow;
         }
     }
