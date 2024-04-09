@@ -632,7 +632,7 @@ namespace Caro_WPF
                     rowsCount = int.Parse(dimensions[0]);
                     columnsCount = int.Parse(dimensions[1]);
                     setGridLine(rowsCount, columnsCount);
-
+                    UpdateUnits();
                     // Read the board state
                     for (int i = 0; i < rowsCount; i++)
                     {
@@ -750,6 +750,12 @@ namespace Caro_WPF
                     keycardTheme.Stop();
                     climaxTheme.Play();
                 }
+                else
+                {
+                    battleTheme.Play();
+                    keycardTheme.Stop();
+                    climaxTheme.Stop();
+                }
             }
             else
             {
@@ -764,6 +770,12 @@ namespace Caro_WPF
                     battleTheme.Stop();
                     keycardTheme.Stop();
                     climaxTheme.Play();
+                }
+                else
+                {
+                    battleTheme.Play();
+                    keycardTheme.Stop();
+                    climaxTheme.Stop();
                 }
             }
         }
