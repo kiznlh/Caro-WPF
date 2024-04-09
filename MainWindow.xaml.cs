@@ -598,9 +598,7 @@ namespace Caro_WPF
         }
         private void loadButton_Click(object sender, RoutedEventArgs e)
         {
-            climaxTheme.Stop();
-            keycardTheme.Stop();
-            battleTheme.Stop();
+      
 
 
             // Create OpenFileDialog
@@ -613,6 +611,9 @@ namespace Caro_WPF
             // Show open file dialog
             if (openFileDialog.ShowDialog() == true)
             {
+                climaxTheme.Stop();
+                keycardTheme.Stop();
+                battleTheme.Stop();
                 // Get the selected file name
                 string fileName = openFileDialog.FileName;
 
